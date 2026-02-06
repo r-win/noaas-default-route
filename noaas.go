@@ -161,7 +161,7 @@ func (n *NoaaSDefaultRoute) generateHTML(message string) string {
             height: 200%%;
             background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: 50px 50px;
-            animation: drift 60s linear infinite;
+            animation: drift 5s linear infinite;
             pointer-events: none;
         }
 
