@@ -1,0 +1,26 @@
+http:
+  routers:
+    # Your other routes go here with higher priorities
+    # ...
+
+    # Default catch-all route
+    default-route:
+      rule: "PathPrefix(`/`)"
+      service: dummy-service
+      middlewares:
+        - noaas-default
+      priority: 1  # Lowest priority = catch-all
+
+  middlewares:
+    noaas-default:
+      plugin:
+        noaas-default-route:
+          apiEndpoint: "https://naas.isalman.dev/no"
+          defaultMessage: "Go Away"
+
+  services:
+    # Dummy service - won't actually be called since the middleware handles the response
+    dummy-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:9999"

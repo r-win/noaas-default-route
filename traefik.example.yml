@@ -1,0 +1,25 @@
+# Traefik Static Configuration
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+experimental:
+  plugins:
+    noaas-default-route:
+      moduleName: github.com/r-win/noaas-default-route
+      version: v0.1.0
+
+# For local development, use localPlugins instead:
+# experimental:
+#   localPlugins:
+#     noaas-default-route:
+#       moduleName: github.com/r-win/noaas-default-route

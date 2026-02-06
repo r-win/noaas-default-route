@@ -1,0 +1,7 @@
+{
+  "name": "noaas-default-route",
+  "type": "middleware",
+  "displayName": "No-as-a-Service Default Route",
+  "import": "github.com/r-win/noaas-default-route",
+  "summary": "Default bouncer which gets a response from No-as-a-Service"
+}

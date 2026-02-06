@@ -1,0 +1,9 @@
+displayName: NoaaS Default Route
+type: middleware
+import: github.com/r-win/noaas-default-route
+
+summary: Fetches a message from no-as-a-service and returns it as HTML
+
+testData:
+  APIEndpoint: https://no-as-a-service.fly.dev/api
+  DefaultMessage: Go Away 
