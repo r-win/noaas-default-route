@@ -126,7 +126,7 @@ func (n *NoaaSDefaultRoute) generateHTML(apiEndpoint, defaultMessage string) str
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%%, var(--bg-gradient-end) 100%%);
             padding: 2rem;
             position: relative;
             overflow: hidden;
@@ -136,10 +136,10 @@ func (n *NoaaSDefaultRoute) generateHTML(apiEndpoint, defaultMessage string) str
         body::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
+            top: -50%%;
+            left: -50%%;
+            width: 200%%;
+            height: 200%%;
             background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: 50px 50px;
             animation: sway 5s ease-in-out infinite;
@@ -147,9 +147,9 @@ func (n *NoaaSDefaultRoute) generateHTML(apiEndpoint, defaultMessage string) str
         }
 
         @keyframes sway {
-            0% { transform: translate(0, 0); }
-            50% { transform: translate(25px, 25px); }
-            100% { transform: translate(0, 50px); }
+            0%% { transform: translate(0, 0); }
+            50%% { transform: translate(25px, 25px); }
+            100%% { transform: translate(0, 50px); }
         }
 
         .theme-toggle {
@@ -159,7 +159,7 @@ func (n *NoaaSDefaultRoute) generateHTML(apiEndpoint, defaultMessage string) str
             background: var(--card-bg);
             border: none;
             padding: 0.75rem;
-            border-radius: 50%;
+            border-radius: 50%%;
             cursor: pointer;
             box-shadow: 0 4px 12px var(--shadow-color);
             font-size: 1.5rem;
@@ -188,8 +188,8 @@ func (n *NoaaSDefaultRoute) generateHTML(apiEndpoint, defaultMessage string) str
             background: var(--card-bg);
             border-radius: 2rem;
             box-shadow: 0 25px 70px var(--shadow-color);
-            max-width: 85%;
-            width: 100%;
+            max-width: 85%%;
+            width: 100%%;
             backdrop-filter: blur(10px);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
@@ -252,7 +252,7 @@ func (n *NoaaSDefaultRoute) generateHTML(apiEndpoint, defaultMessage string) str
         }
 
         a:hover::after {
-            width: 100%;
+            width: 100%%;
         }
 
         a:hover {
