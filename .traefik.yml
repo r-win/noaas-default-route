@@ -2,8 +2,8 @@ displayName: NoaaS Default Route
 type: middleware
 import: github.com/r-win/noaas-default-route
 
-summary: Fetches a message from no-as-a-service and returns it as HTML
+summary: Displays messages from naas.isalman.dev with client-side fetching
 
 testData:
-  APIEndpoint: https://no-as-a-service.fly.dev/api
-  DefaultMessage: Go Away 
+  APIEndpoint: https://naas.isalman.dev/no
+  DefaultMessage: Go Away

@@ -2,7 +2,6 @@ package noaas_default_route
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -78,20 +77,10 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestServeHTTP_Success(t *testing.T) {
-	// Mock API server that returns a successful response
-	mockAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := ReasonResponse{Reason: "nope"}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			t.Errorf("Failed to encode response: %v", err)
-		}
-	}))
-	defer mockAPI.Close()
-
+func TestServeHTTP_HTMLGeneration(t *testing.T) {
 	config := &Config{
-		APIEndpoint:    mockAPI.URL,
-		DefaultMessage: "Go Away",
+		APIEndpoint:    "https://naas.isalman.dev/no",
+		DefaultMessage: "Test Message",
 	}
 
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -118,25 +107,56 @@ func TestServeHTTP_Success(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	if !strings.Contains(body, "nope") {
-		t.Errorf("Expected body to contain 'nope', got: %s", body)
-	}
 
+	// Check for HTML structure
 	if !strings.Contains(body, "<!DOCTYPE html>") {
 		t.Error("Expected body to contain HTML doctype")
 	}
+
+	if !strings.Contains(body, "<html lang=\"en\">") {
+		t.Error("Expected body to contain html tag")
+	}
+
+	// Check for embedded API endpoint in JavaScript
+	if !strings.Contains(body, "https://naas.isalman.dev/no") {
+		t.Error("Expected body to contain API endpoint in JavaScript")
+	}
+
+	// Check for default message in JavaScript
+	if !strings.Contains(body, "Test Message") {
+		t.Error("Expected body to contain default message in JavaScript")
+	}
+
+	// Check for loading state
+	if !strings.Contains(body, "Loading...") {
+		t.Error("Expected body to contain loading message")
+	}
+
+	// Check for theme toggle functionality
+	if !strings.Contains(body, "toggleTheme") {
+		t.Error("Expected body to contain theme toggle function")
+	}
+
+	if !strings.Contains(body, "theme-toggle") {
+		t.Error("Expected body to contain theme toggle button")
+	}
+
+	// Check for fetchMessage function
+	if !strings.Contains(body, "fetchMessage") {
+		t.Error("Expected body to contain fetchMessage function")
+	}
+
+	// Check for proper JSON field access
+	if !strings.Contains(body, "data.reason") {
+		t.Error("Expected body to access data.reason from API response")
+	}
 }
 
-func TestServeHTTP_APIFailure(t *testing.T) {
-	// Mock API server that always fails
-	mockAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer mockAPI.Close()
-
+func TestServeHTTP_CustomEndpoint(t *testing.T) {
+	customEndpoint := "https://example.com/custom/api"
 	config := &Config{
-		APIEndpoint:    mockAPI.URL,
-		DefaultMessage: "Custom Fallback",
+		APIEndpoint:    customEndpoint,
+		DefaultMessage: "Custom Default",
 	}
 
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -148,104 +168,21 @@ func TestServeHTTP_APIFailure(t *testing.T) {
 		t.Fatalf("Failed to create handler: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req := httptest.NewRequest(http.MethodGet, "/test-path", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, rec.Code)
-	}
-
 	body := rec.Body.String()
-	if !strings.Contains(body, "Custom Fallback") {
-		t.Errorf("Expected body to contain 'Custom Fallback', got: %s", body)
-	}
-}
 
-func TestServeHTTP_APITimeout(t *testing.T) {
-	// Mock API server that takes too long to respond
-	mockAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Simulate a long delay (longer than the 5s timeout)
-		// Note: In a real test, we'd actually sleep, but for unit tests we just close the connection
-		hj, ok := w.(http.Hijacker)
-		if ok {
-			conn, _, err := hj.Hijack()
-			if err != nil {
-				t.Errorf("Failed to hijack connection: %v", err)
-				return
-			}
-			_ = conn.Close()
-		}
-	}))
-	defer mockAPI.Close()
-
-	config := &Config{
-		APIEndpoint:    mockAPI.URL,
-		DefaultMessage: "Timeout Message",
+	// Check custom endpoint is embedded
+	if !strings.Contains(body, customEndpoint) {
+		t.Errorf("Expected body to contain custom endpoint '%s'", customEndpoint)
 	}
 
-	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		t.Fatal("Next handler should not be called")
-	})
-
-	handler, err := New(context.Background(), next, config, "test")
-	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, rec.Code)
-	}
-
-	body := rec.Body.String()
-	if !strings.Contains(body, "Timeout Message") {
-		t.Errorf("Expected body to contain fallback message, got: %s", body)
-	}
-}
-
-func TestServeHTTP_InvalidJSON(t *testing.T) {
-	// Mock API server that returns invalid JSON
-	mockAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, err := w.Write([]byte("invalid json{{{"))
-		if err != nil {
-			t.Errorf("Failed to write response: %v", err)
-		}
-	}))
-	defer mockAPI.Close()
-
-	config := &Config{
-		APIEndpoint:    mockAPI.URL,
-		DefaultMessage: "JSON Error",
-	}
-
-	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		t.Fatal("Next handler should not be called")
-	})
-
-	handler, err := New(context.Background(), next, config, "test")
-	if err != nil {
-		t.Fatalf("Failed to create handler: %v", err)
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, rec.Code)
-	}
-
-	body := rec.Body.String()
-	if !strings.Contains(body, "JSON Error") {
-		t.Errorf("Expected body to contain fallback message, got: %s", body)
+	// Check custom default message is embedded
+	if !strings.Contains(body, "Custom Default") {
+		t.Error("Expected body to contain custom default message")
 	}
 }
 
@@ -263,137 +200,53 @@ func TestGenerateHTML(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		message  string
-		expected []string
+		name        string
+		apiEndpoint string
+		defaultMsg  string
+		expected    []string
 	}{
 		{
-			name:    "Simple message",
-			message: "nope",
+			name:        "Default values",
+			apiEndpoint: "https://naas.isalman.dev/no",
+			defaultMsg:  "Go Away",
 			expected: []string{
 				"<!DOCTYPE html>",
 				"<html lang=\"en\">",
 				"<title>No as a Service</title>",
-				"nope",
-				"no-as-a-service",
-				"prefers-color-scheme",
-			},
-		},
-		{
-			name:    "Custom message",
-			message: "Go Away",
-			expected: []string{
+				"https://naas.isalman.dev/no",
 				"Go Away",
-				"<!DOCTYPE html>",
+				"naas.isalman.dev",
+				"@keyframes sway",
+				"data.reason",
 			},
 		},
 		{
-			name:    "Message with special characters",
-			message: "Absolutely not!",
+			name:        "Custom values",
+			apiEndpoint: "https://example.com/api",
+			defaultMsg:  "Custom Message",
 			expected: []string{
-				"Absolutely not!",
+				"https://example.com/api",
+				"Custom Message",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			html := plugin.generateHTML(tt.message)
+			html := plugin.generateHTML(tt.apiEndpoint, tt.defaultMsg)
 
 			for _, exp := range tt.expected {
 				if !strings.Contains(html, exp) {
-					t.Errorf("Expected HTML to contain '%s', but it didn't.\nGenerated HTML:\n%s", exp, html)
+					t.Errorf("Expected HTML to contain '%s', but it didn't", exp)
 				}
-			}
-		})
-	}
-}
-
-func TestFetchNoMessage(t *testing.T) {
-	tests := []struct {
-		name        string
-		mockHandler http.HandlerFunc
-		wantErr     bool
-		wantMessage string
-	}{
-		{
-			name: "Successful fetch",
-			mockHandler: func(w http.ResponseWriter, r *http.Request) {
-				response := ReasonResponse{Reason: "absolutely not"}
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(response); err != nil {
-					t.Errorf("Failed to encode response: %v", err)
-				}
-			},
-			wantErr:     false,
-			wantMessage: "absolutely not",
-		},
-		{
-			name: "Server error",
-			mockHandler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-			},
-			wantErr: true,
-		},
-		{
-			name: "Invalid JSON",
-			mockHandler: func(w http.ResponseWriter, r *http.Request) {
-				_, err := w.Write([]byte("not json"))
-				if err != nil {
-					t.Errorf("Failed to write response: %v", err)
-				}
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockAPI := httptest.NewServer(tt.mockHandler)
-			defer mockAPI.Close()
-
-			config := &Config{APIEndpoint: mockAPI.URL}
-			next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
-			handler, err := New(context.Background(), next, config, "test")
-			if err != nil {
-				t.Fatalf("Failed to create handler: %v", err)
-			}
-
-			plugin, ok := handler.(*NoaaSDefaultRoute)
-			if !ok {
-				t.Fatal("Handler is not of type *NoaaSDefaultRoute")
-			}
-
-			message, err := plugin.fetchNoMessage()
-
-			if tt.wantErr && err == nil {
-				t.Error("Expected error but got none")
-			}
-
-			if !tt.wantErr && err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-
-			if !tt.wantErr && message != tt.wantMessage {
-				t.Errorf("Expected message '%s', got '%s'", tt.wantMessage, message)
 			}
 		})
 	}
 }
 
 func TestServeHTTP_AllURLs(t *testing.T) {
-	// Mock API server
-	mockAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := ReasonResponse{Reason: "nope"}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			t.Errorf("Failed to encode response: %v", err)
-		}
-	}))
-	defer mockAPI.Close()
-
 	config := &Config{
-		APIEndpoint:    mockAPI.URL,
+		APIEndpoint:    "https://naas.isalman.dev/no",
 		DefaultMessage: "Go Away",
 	}
 
@@ -406,7 +259,7 @@ func TestServeHTTP_AllURLs(t *testing.T) {
 		t.Fatalf("Failed to create handler: %v", err)
 	}
 
-	// Test various URLs - all should be intercepted
+	// Test various URLs - all should be intercepted and return HTML
 	urls := []string{
 		"/",
 		"/test",
@@ -427,8 +280,45 @@ func TestServeHTTP_AllURLs(t *testing.T) {
 			}
 
 			body := rec.Body.String()
-			if !strings.Contains(body, "nope") {
-				t.Errorf("Expected body to contain 'nope' for URL %s", url)
+			if !strings.Contains(body, "<!DOCTYPE html>") {
+				t.Errorf("Expected HTML response for URL %s", url)
+			}
+
+			if !strings.Contains(body, "fetchMessage") {
+				t.Errorf("Expected JavaScript fetchMessage function for URL %s", url)
+			}
+		})
+	}
+}
+
+func TestServeHTTP_DifferentMethods(t *testing.T) {
+	config := CreateConfig()
+	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		t.Fatal("Next handler should not be called")
+	})
+
+	handler, err := New(context.Background(), next, config, "test")
+	if err != nil {
+		t.Fatalf("Failed to create handler: %v", err)
+	}
+
+	methods := []string{
+		http.MethodGet,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodDelete,
+		http.MethodHead,
+	}
+
+	for _, method := range methods {
+		t.Run("Method: "+method, func(t *testing.T) {
+			req := httptest.NewRequest(method, "/", http.NoBody)
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Errorf("Expected status code %d for method %s, got %d", http.StatusOK, method, rec.Code)
 			}
 		})
 	}

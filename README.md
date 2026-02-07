@@ -1,20 +1,21 @@
 # No-as-a-Service Default Route Plugin for Traefik
 
-This Traefik plugin fetches a message from [no-as-a-service](https://naas.isalman.dev) and returns it as a beautifully styled HTML page with automatic light/dark mode support. Perfect for a default/fallback route that handles **all unmatched URLs**.
+This Traefik plugin displays messages from [naas.isalman.dev](https://naas.isalman.dev) as a beautifully styled HTML page with automatic light/dark mode support. The API is called **client-side** via JavaScript to avoid rate limiting on the server. Perfect for a default/fallback route that handles **all unmatched URLs**.
 
 ## Features
 
 - ✨ **Beautiful Design** - Responsive layout with smooth animations
-- 🌓 **Light/Dark Mode** - Automatically adapts to system preferences
+- 🌓 **Light/Dark Mode** - Automatic theme switching with manual toggle
 - 🔄 **Graceful Fallback** - Configurable default message when API times out
 - 🎯 **Catch-All Routes** - Intercepts all requested URLs, not just `/`
 - 🚀 **No Extra Containers** - Pure Traefik middleware plugin
+- 📱 **Client-Side Fetching** - Each visitor fetches their own message, avoiding server-side rate limits
 
 ## Quick Start
 
 ```bash
 # Clone or download the plugin files
-git clone https://github.com/r-win/noaas-default-route.git
+git clone https://github.com/yourusername/noaas-default-route.git
 cd noaas-default-route
 
 # Run the setup script (installs golangci-lint if needed)
@@ -44,12 +45,12 @@ mkdir -p /path/to/plugins/noaas-default-route
 experimental:
   localPlugins:
     noaas-default-route:
-      moduleName: github.com/r-win/noaas-default-route
+      moduleName: github.com/yourusername/noaas-default-route
 ```
 
 ### Option 2: GitHub Plugin (Production)
 
-1. Create a GitHub repository (e.g., `r-win/noaas-default-route`)
+1. Create a GitHub repository (e.g., `yourusername/noaas-default-route`)
 
 2. Push these files to the repository
 
@@ -58,7 +59,7 @@ experimental:
 experimental:
   plugins:
     noaas-default-route:
-      moduleName: github.com/r-win/noaas-default-route
+      moduleName: github.com/yourusername/noaas-default-route
       version: v0.1.0
 ```
 
@@ -70,7 +71,7 @@ experimental:
 experimental:
   plugins:
     noaas-default-route:
-      moduleName: github.com/r-win/noaas-default-route
+      moduleName: github.com/yourusername/noaas-default-route
       version: v0.1.0
 
 entryPoints:
@@ -96,7 +97,7 @@ http:
     noaas-default:
       plugin:
         noaas-default-route:
-          apiEndpoint: "https://naas.isalman.dev/no"
+          apiEndpoint: "https://no-as-a-service.fly.dev/api"
           defaultMessage: "Go Away"
 
   services:
@@ -116,7 +117,7 @@ services:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--entrypoints.web.address=:80"
-      - "--experimental.plugins.noaas-default-route.modulename=github.com/r-win/noaas-default-route"
+      - "--experimental.plugins.noaas-default-route.modulename=github.com/yourusername/noaas-default-route"
       - "--experimental.plugins.noaas-default-route.version=v0.1.0"
     ports:
       - "80:80"
@@ -132,23 +133,23 @@ services:
       - "traefik.http.routers.default.rule=PathPrefix(`/`)"
       - "traefik.http.routers.default.priority=1"
       - "traefik.http.routers.default.middlewares=noaas-default@docker"
-      - "traefik.http.middlewares.noaas-default.plugin.noaas-default-route.apiEndpoint=https://naas.isalman.dev/no"
+      - "traefik.http.middlewares.noaas-default.plugin.noaas-default-route.apiEndpoint=https://no-as-a-service.fly.dev/api"
       - "traefik.http.middlewares.noaas-default.plugin.noaas-default-route.defaultMessage=Go Away"
 ```
 
 ## How It Works
 
 1. The plugin intercepts **all** requests to unmatched routes (not just `/`)
-2. It makes an HTTP GET request to the no-as-a-service API
-3. It receives a JSON response like `{"no": "nope"}`
-4. If the API times out or fails, it uses the configured `defaultMessage` instead
-5. It generates a beautiful, responsive HTML page with the message
+2. It generates a beautiful HTML page with embedded JavaScript
+3. When the page loads in the visitor's browser, it fetches a message from the API client-side
+4. The API returns JSON: `{"reason": "nope"}` 
+5. If the API times out or fails, it uses the configured `defaultMessage` instead
 6. The page automatically adapts to light/dark mode based on system preferences
-7. It returns the HTML to the client
+7. Visitors can manually toggle between light and dark mode with the button
 
 ## Configuration Options
 
-- `apiEndpoint` (optional): The API endpoint to fetch messages from. Defaults to `https://naas.isalman.dev/no`
+- `apiEndpoint` (optional): The API endpoint for client-side fetching. Defaults to `https://naas.isalman.dev/no`
 - `defaultMessage` (optional): Message to display when API times out or fails. Defaults to `Go Away`
 
 ## Example
@@ -197,13 +198,23 @@ golangci-lint --version
 
 ### Running Tests
 
+**Important:** Make sure you're running the tests from within the plugin directory!
+
 ```bash
-# Run all tests
+# Navigate to the plugin directory first
+cd noaas-default-route
+
+# Then run tests
 make test
 
 # Or manually
 go test -v -race -coverprofile=coverage.out ./...
+
+# Or use the test runner script
+./run-tests.sh
 ```
+
+**Common issue:** If you see `[no test files]`, you're likely running the command from the wrong directory. Make sure you're inside the `noaas-default-route` directory where the `.go` files are located.
 
 ### Linting
 
@@ -232,11 +243,39 @@ After running tests, view the coverage report:
 go tool cover -html=coverage.out
 ```
 
+**Troubleshooting 0% coverage:**
+
+If you see `coverage: 0.0% of statements`, this might be because:
+
+1. **Wrong module name**: Update `go.mod` to match your actual repository path
+   ```bash
+   # In go.mod, change:
+   module github.com/yourusername/noaas-default-route
+   # To your actual path:
+   module github.com/r-win/noaas-default-route
+   ```
+
+2. **Check if tests are actually running**:
+   ```bash
+   go test -v ./...
+   ```
+   You should see test output like `TestCreateConfig`, `TestNew`, etc.
+
+3. **Verify coverage file**:
+   ```bash
+   head coverage.out
+   ```
+   Should show lines starting with the package name
+
+Expected coverage should be around 80-90% with the provided tests.
+
 ## Notes
 
-- The plugin has a 5-second timeout for API requests
-- If the API request fails, it uses the configured `defaultMessage` (defaults to "Go Away")
+- The API is called **client-side** by each visitor's browser, not by the Traefik server
+- This avoids rate limiting issues on the server side
 - The priority should be set to 1 (or low) so it acts as a catch-all route for **all** unmatched URLs
 - The HTML is fully responsive and mobile-friendly
 - Light/dark mode switches automatically based on system preferences using `prefers-color-scheme`
-- The design includes smooth animations and hover effects
+- Users can manually toggle themes with the button in the top-right corner
+- The theme preference is saved in localStorage
+- The design includes smooth animations, swaying dot pattern, and hover effects

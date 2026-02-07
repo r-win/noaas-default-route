@@ -2,11 +2,8 @@ package noaas_default_route
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"time"
 )
 
 // Config the plugin configuration.
@@ -23,18 +20,12 @@ func CreateConfig() *Config {
 	}
 }
 
-// NoaaSDefaultRoute a Traefik plugin that fetches messages from no-as-a-service.
+// NoaaSDefaultRoute a Traefik plugin that displays messages from no-as-a-service.
 type NoaaSDefaultRoute struct {
 	next           http.Handler
 	apiEndpoint    string
 	defaultMessage string
 	name           string
-	client         *http.Client
-}
-
-// ReasonResponse represents the response from no-as-a-service API.
-type ReasonResponse struct {
-	Reason string `json:"reason"`
 }
 
 // New created a new NoaaSDefaultRoute plugin.
@@ -52,22 +43,13 @@ func New(ctx context.Context, next http.Handler, config *Config, name string) (h
 		apiEndpoint:    config.APIEndpoint,
 		defaultMessage: config.DefaultMessage,
 		name:           name,
-		client: &http.Client{
-			Timeout: 5 * time.Second,
-		},
 	}, nil
 }
 
 func (n *NoaaSDefaultRoute) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	// Fetch the message from no-as-a-service
-	message, err := n.fetchNoMessage()
-	if err != nil {
-		// Use default message if API fails
-		message = n.defaultMessage
-	}
-
-	// Generate HTML response
-	html := n.generateHTML(message)
+	// Generate HTML response with client-side API call
+	// Pass the API endpoint and default message to the HTML
+	html := n.generateHTML(n.apiEndpoint, n.defaultMessage)
 
 	// Set headers and write response
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -78,31 +60,7 @@ func (n *NoaaSDefaultRoute) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	}
 }
 
-func (n *NoaaSDefaultRoute) fetchNoMessage() (string, error) {
-	resp, err := n.client.Get(n.apiEndpoint)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch from API: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var reasonResp ReasonResponse
-	if err := json.Unmarshal(body, &reasonResp); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return reasonResp.Reason, nil
-}
-
-func (n *NoaaSDefaultRoute) generateHTML(message string) string {
+func (n *NoaaSDefaultRoute) generateHTML(apiEndpoint, defaultMessage string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -134,6 +92,28 @@ func (n *NoaaSDefaultRoute) generateHTML(message string) string {
             }
         }
 
+        [data-theme="light"] {
+            --bg-gradient-start: #667eea;
+            --bg-gradient-end: #764ba2;
+            --card-bg: #ffffff;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --link-color: #667eea;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --shadow-hover: rgba(0, 0, 0, 0.15);
+        }
+
+        [data-theme="dark"] {
+            --bg-gradient-start: #1a1a2e;
+            --bg-gradient-end: #16213e;
+            --card-bg: #0f1419;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --link-color: #818cf8;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --shadow-hover: rgba(0, 0, 0, 0.5);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -146,28 +126,59 @@ func (n *NoaaSDefaultRoute) generateHTML(message string) string {
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%%, var(--bg-gradient-end) 100%%);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             padding: 2rem;
             position: relative;
             overflow: hidden;
+            transition: background 0.3s ease;
         }
 
         body::before {
             content: '';
             position: absolute;
-            top: -50%%;
-            left: -50%%;
-            width: 200%%;
-            height: 200%%;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
             background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: 50px 50px;
-            animation: drift 5s linear infinite;
+            animation: sway 5s ease-in-out infinite;
             pointer-events: none;
         }
 
-        @keyframes drift {
-            0%% { transform: translate(0, 0); }
-            100%% { transform: translate(50px, 50px); }
+        @keyframes sway {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(25px, 25px); }
+            100% { transform: translate(0, 50px); }
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: var(--card-bg);
+            border: none;
+            padding: 0.75rem;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            font-size: 1.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            z-index: 100;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 6px 16px var(--shadow-hover);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.95);
         }
 
         .container {
@@ -177,8 +188,8 @@ func (n *NoaaSDefaultRoute) generateHTML(message string) string {
             background: var(--card-bg);
             border-radius: 2rem;
             box-shadow: 0 25px 70px var(--shadow-color);
-            max-width: 900px;
-            width: 100%%;
+            max-width: 85%;
+            width: 100%;
             backdrop-filter: blur(10px);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
@@ -241,11 +252,15 @@ func (n *NoaaSDefaultRoute) generateHTML(message string) string {
         }
 
         a:hover::after {
-            width: 100%%;
+            width: 100%;
         }
 
         a:hover {
             opacity: 0.8;
+        }
+
+        .loading {
+            opacity: 0.5;
         }
 
         @media (max-width: 640px) {
@@ -256,14 +271,80 @@ func (n *NoaaSDefaultRoute) generateHTML(message string) string {
             body {
                 padding: 1rem;
             }
+
+            .theme-toggle {
+                top: 1rem;
+                right: 1rem;
+            }
         }
     </style>
 </head>
 <body>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+        <span id="theme-icon">🌙</span>
+    </button>
     <div class="container">
-        <h1>%s</h1>
-        <p>Powered by <a href="https://naas.isalman.dev" target="_blank" rel="noopener noreferrer">no-as-a-service</a></p>
+        <h1 id="message" class="loading">Loading...</h1>
+        <p>Powered by <a href="https://naas.isalman.dev" target="_blank" rel="noopener noreferrer">naas.isalman.dev</a></p>
     </div>
+
+    <script>
+        const API_ENDPOINT = '%s';
+        const DEFAULT_MESSAGE = '%s';
+
+        // Fetch message from API
+        async function fetchMessage() {
+            const messageEl = document.getElementById('message');
+            
+            try {
+                const response = await fetch(API_ENDPOINT);
+                
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+                
+                const data = await response.json();
+                messageEl.textContent = data.reason || DEFAULT_MESSAGE;
+            } catch (error) {
+                console.error('Failed to fetch message:', error);
+                messageEl.textContent = DEFAULT_MESSAGE;
+            } finally {
+                messageEl.classList.remove('loading');
+            }
+        }
+
+        // Theme management
+        const getPreferredTheme = () => {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                return savedTheme;
+            }
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        };
+
+        const setTheme = (theme) => {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            document.getElementById('theme-icon').textContent = theme === 'dark' ? '☀️' : '🌙';
+        };
+
+        const toggleTheme = () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        };
+
+        // Initialize on page load
+        setTheme(getPreferredTheme());
+        fetchMessage();
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                setTheme(e.matches ? 'dark' : 'light');
+            }
+        });
+    </script>
 </body>
-</html>`, message)
+</html>`, apiEndpoint, defaultMessage)
 }
